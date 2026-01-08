@@ -1,4 +1,3 @@
-# my global config
 global:
   scrape_interval: 15s # Set the scrape interval to every 15 seconds. Default is every 1 minute.
   evaluation_interval: 15s # Evaluate rules every 15 seconds. The default is every 1 minute.
@@ -11,19 +10,15 @@ alerting:
         - targets:
           # - alertmanager:9093
 
-# Load rules once and periodically evaluate them according to the global 'evaluation_interval'.
 rule_files:
-    - "beatriz_rules.yml"
-  # - "second_rules.yml"
+    - "rules.yml"
 
-# A scrape configuration containing exactly one endpoint to scrape:
-# Here it's Prometheus itself.
+
+
 scrape_configs:
-  # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
+
   - job_name: "prometheus"
 
-    # metrics_path defaults to '/metrics'
-    # scheme defaults to 'http'.
 
     static_configs:
       - targets: ["127.0.0.1:9090"]
@@ -34,8 +29,6 @@ scrape_configs:
       module: [http_2xx]
     static_configs:
       - targets:
-        - https://vdr.alantra.com
-        - http://www.alantra.com
         - http://www.google.com
     relabel_configs:
       - source_labels: [__address__]
@@ -51,25 +44,7 @@ scrape_configs:
       module: [tcp_connect]
     static_configs:
       - targets:
-        - ALNAZPRODEUWEDC.NMASUNO.COM:389
-        - ALNAZPRODEUWEDC.NMASUNO.COM:636
-        - ALNAZPRODEUWEDC.NMASUNO.COM:445
-        - ALNAZPRODC02.NMASUNO.COM:389
-        - ALNAZPRODC02.NMASUNO.COM:636
-        - ALNAZPRODC02.NMASUNO.COM:445
-        - ALNADAZ03.NMASUNO.COM:389
-        - ALNADAZ03.NMASUNO.COM:636
-        - ALNADAZ03.NMASUNO.COM:445
-        - ALNPRODPRINTAZ0.NMASUNO.COM:445
-        - ALNAZ1.NMASUNO.COM:445
-        - ALNAZ2.NMASUNO.COM:445
-        - ALNAZ3.NMASUNO.COM:445
-        - ALNAZ4.NMASUNO.COM:445
-        - ALNAZ5.NMASUNO.COM:445
-        - ALNAZ7.NMASUNO.COM:445
-        - adam.alantra.com:4438
-        - ANETAPPUS-2463.NMASUNO.COM:445
-        - ALNPRINTAZ02.NMASUNO.COM:445
+
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
