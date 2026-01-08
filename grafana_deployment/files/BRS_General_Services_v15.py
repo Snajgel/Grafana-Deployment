@@ -102,20 +102,7 @@ def main():
 
     print_header("SERVICE CONNECTIVITY TEST")
     services = {
-        "ALNAZPRODEUWEDC.NMASUNO.COM": [389, 636, 445],
-        "ALNAZPRODC02.NMASUNO.COM": [389, 636, 445],
-        "ALNADAZ03.NMASUNO.COM": [389, 636, 445],
-        "ALNPRODSQLGS02.NMASUNO.COM": [1433, 1435],
-        "ALNPRODPRINTAZ0.NMASUNO.COM": [445],
-        "ALNPRINTAZ02.NMASUNO.COM": [445],
-        "ALNAZ1.NMASUNO.COM": [445], "ALNAZ2.NMASUNO.COM": [445], "ALNAZ3.NMASUNO.COM": [445],
-        "ALNAZ4.NMASUNO.COM": [445], "ALNAZ5.NMASUNO.COM": [445], "ALNAZ7.NMASUNO.COM": [445],
-        "ALANTRA2018.NMASUNO.COM": [445],
-        "nmasuno.com": [389, 636, 445],
-        "adam.alantra.com": [4438],
-        "10.174.36.4": [4441],
-        "ALNAPPZA02.NMASUNO.COM": [8444, 8081],
-        "adsi.alantra.com": [451, 453]
+        "FQDN": [PORT],
     }
 
     for host, ports in services.items():
@@ -150,10 +137,8 @@ def main():
 
     print_header("TEST URL CONNECTIONS")
     urls = [
-        "https://anisa.alantra.com", "https://enma.alantra.com", "https://vdr.alantra.com",
-        "https://www.alantra.com", "https://www.google.com",
-        "https://adsi.alantra.com:451", "https://adsi.alantra.com:453",
-        "https://adaudit.alantra.com:8081", "https://adaudit.alantra.com:8444"
+         "https://www.google.com"
+
     ]
     for url in urls:
         try:
@@ -207,13 +192,13 @@ pre { background: #eee; padding: 10px; border-radius: 5px; }
     # Send email via Outlook/Office365 (STARTTLS)
     send_email_report(
         html_path=html_path,
-        subject=f"Network Report from Athens 2",
-        sender_email="enma.monitoring@alantra.com",
-        recipient_email="AlertasZabbix@alantra.com",
-        smtp_server="smtp.office365.com",
+        subject=f"Network Report",
+        sender_email="",
+        recipient_email="",
+        smtp_server="",
         smtp_port=587,
-        smtp_user="enma.monitoring@alantra.com",
-        smtp_password="Vat35284"
+        smtp_user="e",
+        smtp_password=""
     )
 
 if __name__ == "__main__":
