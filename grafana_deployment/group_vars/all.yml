@@ -1,0 +1,58 @@
+monadmin_user: "monadmin"
+monadmin_password_hash: "$6$g3J0WWk0QUtnP1YK$s6Zp.bhRQvPyzsxd.SkDpAjnhdEuhiflKSpQN0tKCnr/5E2O/nYLmvanSaniqHo02sLSEsyuovbKxvjNGDAzZ1"       # mkpasswd --method=SHA-512
+
+net_tools: [nmap, ncat, tcpdump, dnsutils, mtr, traceroute, curl, telnet, openssl, iputils-ping, whois]
+
+# Grafana
+grafana_repo_channel: "stable"
+grafana_package: "grafana"
+grafana_email_template_src: "ng_alert_notification.html"
+grafana_email_template_dest: "/usr/share/grafana/public/emails/ng_alert_notification.html"
+grafana_cert_dir: "/etc/grafana/Certificates"
+grafana_cert_file: "certificate.pem"
+
+# Prometheus (ARM64)
+prometheus_version: "3.7.1"
+prometheus_arch: "linux-arm64"
+prometheus_pkg: "prometheus-{{ prometheus_version }}.{{ prometheus_arch }}"
+prometheus_url: "https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_version }}/{{ prometheus_pkg }}.tar.gz"
+prometheus_user: "prometheus"
+prometheus_dir: "/etc/prometheus"
+prometheus_data_dir: "/var/lib/prometheus"
+
+# Blackbox Exporter (ARM64)
+blackbox_exporter_version: "0.27.0"
+blackbox_arch: "linux-arm64"
+blackbox_pkg: "blackbox_exporter-{{ blackbox_exporter_version }}.{{ blackbox_arch }}"
+blackbox_url: "https://github.com/prometheus/blackbox_exporter/releases/download/v{{ blackbox_exporter_version }}/{{ blackbox_pkg }}.tar.gz"
+blackbox_user: "blackbox_exporter"
+blackbox_config_src: "monitor_sites.yml"
+blackbox_config_dest: "/etc/blackbox_exporter/monitor_sites.yml"
+
+# Pushgateway (ARM64)
+pushgateway_version: "1.11.1"
+pushgateway_arch: "linux-arm64"
+pushgateway_pkg: "pushgateway-{{ pushgateway_version }}.{{ pushgateway_arch }}"
+pushgateway_url: "https://github.com/prometheus/pushgateway/releases/download/v{{ pushgateway_version }}/{{ pushgateway_pkg }}.tar.gz"
+pushgateway_user: "pushgateway"
+pushgateway_listen_address: "0.0.0.0:9091"
+pushgateway_service_name: "pushgateway"
+
+# Open service ports (FYI)
+open_ports_any: [3000, 9090, 9115, 9469, 9091]
+
+# SSH banners / MOTD
+issue_net_content: |
+  **********************************************************************
+  * WARNING: This is a private system and is for authorized use only.  *
+  * If you are not an authorized user, disconnect immediately.         *
+  * Unauthorized access is a criminal offense.                         *
+  **********************************************************************
+motd_content: |
+  **************************************************
+  * WARNING: Unauthorized Access Prohibited!       *
+  * This system is the property of Alantra.        *
+  * Unauthorized access is strictly forbidden.     *
+  * All activities are monitored and logged.       *
+  * Legal actions will be taken if necessary.      *
+  **************************************************

@@ -1,0 +1,405 @@
+---
+- name: Install Grafana, Prometheus, Blackbox Exporter, Pushgateway, and Speedtest Exporter (ARM64)
+  hosts: monitoring
+  become: true
+  vars_files:
+    - group_vars/all.yml
+
+  pre_tasks:
+    - name: Ensure APT cache is up to date
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Create monitoring user for testers
+      user:
+        name: "{{ monadmin_user }}"
+        shell: /bin/bash
+        create_home: yes
+        groups: sudo
+        append: yes
+        password: "{{ monadmin_password_hash | default(omit) }}"
+      when: monadmin_password_hash | length > 0
+
+    - name: Create monitoring user for testers (no password set)
+      user:
+        name: "{{ monadmin_user }}"
+        shell: /bin/bash
+        create_home: yes
+        groups: sudo
+        append: yes
+      when: monadmin_password_hash | length == 0
+
+    - name: Install network troubleshooting tools
+      apt:
+        name: "{{ net_tools }}"
+        state: present
+
+  tasks:
+  tasks:
+    # ------------------- SSH KEY DEPLOYMENT -------------------
+    - name: Ensure admin users exist and deploy SSH keys
+      vars:
+        admin_accounts:
+          - name: "{{ monadmin_user }}"
+            pubkey: "monadmin.pub"
+      block:
+        - name: Ensure .ssh directory exists
+          file:
+            path: "/home/{{ item.name }}/.ssh"
+            state: directory
+            owner: "{{ item.name }}"
+            group: "{{ item.name }}"
+            mode: "0700"
+          loop: "{{ admin_accounts }}"
+
+        - name: Deploy public key to authorized_keys
+          copy:
+            src: "files/{{ item.pubkey }}"
+            dest: "/home/{{ item.name }}/.ssh/authorized_keys"
+            owner: "{{ item.name }}"
+            group: "{{ item.name }}"
+            mode: "0600"
+          loop: "{{ admin_accounts }}"
+
+    # ------------------- GRAFANA -------------------
+    - name: Install Grafana prerequisites
+      apt:
+        name: [apt-transport-https, software-properties-common, wget, gpg]
+        state: present
+
+    - name: Create keyring dir
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
+    - name: Add Grafana GPG key
+      get_url:
+        url: https://apt.grafana.com/gpg.key
+        dest: /etc/apt/keyrings/grafana.gpg
+        mode: "0644"
+
+    - name: Add Grafana APT repo
+      copy:
+        dest: /etc/apt/sources.list.d/grafana.list
+        mode: "0644"
+        content: |
+          deb [signed-by=/etc/apt/keyrings/grafana.gpg] https://apt.grafana.com {{ grafana_repo_channel }} main
+
+    - name: Update APT cache after adding Grafana repo
+      apt:
+        update_cache: yes
+
+    - name: Install Grafana
+      apt:
+        name: "{{ grafana_package }}"
+        state: present
+
+    - name: Copy custom email notification template
+      copy:
+        src: "files/{{ grafana_email_template_src }}"
+        dest: "{{ grafana_email_template_dest }}"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Ensure Grafana Certificates dir exists
+      file:
+        path: "{{ grafana_cert_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Deploy Grafana certificate (if provided)
+      copy:
+        src: "files/{{ grafana_cert_file }}"
+        dest: "{{ grafana_cert_dir }}/{{ grafana_cert_file }}"
+        owner: root
+        group: root
+        mode: "0644"
+      when: lookup('fileglob', 'files/{{ grafana_cert_file }}', errors='ignore')
+
+    - name: Enable and start Grafana
+      systemd:
+        name: grafana-server
+        enabled: true
+        state: started
+
+    # ------------------- PROMETHEUS (ARM64) -------------------
+    - name: Create Prometheus user
+      user:
+        name: "{{ prometheus_user }}"
+        system: yes
+        shell: /usr/sbin/nologin
+        create_home: no
+
+    - name: Create Prometheus dirs
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ prometheus_user }}"
+        group: "{{ prometheus_user }}"
+        mode: "0755"
+      loop:
+        - "{{ prometheus_dir }}"
+        - "{{ prometheus_data_dir }}"
+
+    - name: Download Prometheus (ARM64)
+      get_url:
+        url: "{{ prometheus_url }}"
+        dest: "/tmp/{{ prometheus_pkg }}.tar.gz"
+        mode: "0644"
+
+    - name: Extract Prometheus
+      unarchive:
+        src: "/tmp/{{ prometheus_pkg }}.tar.gz"
+        dest: "/opt"
+        remote_src: yes
+        creates: "/opt/{{ prometheus_pkg }}"
+
+    - name: Install Prometheus binaries
+      copy:
+        src: "/opt/{{ prometheus_pkg }}/{{ item }}"
+        dest: "/usr/local/bin/{{ item }}"
+        mode: "0755"
+        remote_src: yes
+      loop: [prometheus, promtool]
+
+    
+    - name: Deploy prometheus.yml
+      copy:
+        src: "files/prometheus.yml"
+        dest: "{{ prometheus_dir }}/prometheus.yml"
+        owner: "{{ prometheus_user }}"
+        group: "{{ prometheus_user }}"
+        mode: "0644"
+
+    - name: Deploy prometheus.service
+      copy:
+        src: "files/prometheus.service"
+        dest: "/etc/systemd/system/prometheus.service"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Reload systemd and enable/start Prometheus
+      systemd:
+        name: prometheus
+        state: started
+        enabled: true
+        daemon_reload: true
+
+    # ------------------- BLACKBOX EXPORTER (ARM64) -------------------
+    - name: Create Blackbox Exporter user
+      user:
+        name: "{{ blackbox_user }}"
+        system: yes
+        shell: /usr/sbin/nologin
+        create_home: no
+
+    - name: Create Blackbox Exporter config dir
+      file:
+        path: /etc/blackbox_exporter
+        state: directory
+        owner: "{{ blackbox_user }}"
+        group: "{{ blackbox_user }}"
+        mode: "0755"
+
+    - name: Download Blackbox Exporter (ARM64)
+      get_url:
+        url: "{{ blackbox_url }}"
+        dest: "/tmp/{{ blackbox_pkg }}.tar.gz"
+        mode: "0644"
+
+    - name: Extract Blackbox Exporter
+      unarchive:
+        src: "/tmp/{{ blackbox_pkg }}.tar.gz"
+        dest: "/opt"
+        remote_src: yes
+        creates: "/opt/{{ blackbox_pkg }}"
+
+    - name: Install Blackbox Exporter binary
+      copy:
+        src: "/opt/{{ blackbox_pkg }}/blackbox_exporter"
+        dest: "/usr/local/bin/blackbox_exporter"
+        mode: "0755"
+        remote_src: yes
+
+    - name: Deploy Blackbox config
+      copy:
+        src: "files/{{ blackbox_config_src }}"
+        dest: "{{ blackbox_config_dest }}"
+        owner: "{{ blackbox_user }}"
+        group: "{{ blackbox_user }}"
+        mode: "0644"
+
+    - name: Deploy blackbox.service
+      copy:
+        src: "files/blackbox.service"
+        dest: "/etc/systemd/system/blackbox.service"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Reload systemd and enable/start Blackbox Exporter
+      systemd:
+        name: blackbox
+        state: started
+        enabled: true
+        daemon_reload: true
+
+    # ------------------- PUSHGATEWAY (ARM64) -------------------
+    - name: Create Pushgateway user
+      user:
+        name: "{{ pushgateway_user }}"
+        system: yes
+        shell: /usr/sbin/nologin
+        create_home: no
+
+    - name: Download Pushgateway (ARM64)
+      get_url:
+        url: "{{ pushgateway_url }}"
+        dest: "/tmp/{{ pushgateway_pkg }}.tar.gz"
+        mode: "0644"
+
+    - name: Extract Pushgateway
+      unarchive:
+        src: "/tmp/{{ pushgateway_pkg }}.tar.gz"
+        dest: "/opt"
+        remote_src: yes
+        creates: "/opt/{{ pushgateway_pkg }}"
+
+    - name: Install Pushgateway binary
+      copy:
+        src: "/opt/{{ pushgateway_pkg }}/pushgateway"
+        dest: "/usr/local/bin/pushgateway"
+        mode: "0755"
+        remote_src: yes
+
+    - name: Create Pushgateway systemd service
+      copy:
+        dest: /etc/systemd/system/{{ pushgateway_service_name }}.service
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Prometheus Pushgateway
+          Wants=network-online.target
+          After=network-online.target
+
+          [Service]
+          User={{ pushgateway_user }}
+          Group={{ pushgateway_user }}
+          Type=simple
+          Restart=on-failure
+          ExecStart=/usr/local/bin/pushgateway --web.listen-address={{ pushgateway_listen_address }}
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Reload systemd and enable/start Pushgateway
+      systemd:
+        name: "{{ pushgateway_service_name }}"
+        state: started
+        enabled: true
+        daemon_reload: true
+
+    - name: Deploy curl_push helper script (optional)
+      copy:
+        src: "files/curl_push.sh"
+        dest: "/bin/curl_push.sh"
+        owner: root
+        group: root
+        mode: "0755"
+
+    # ------------------- DOCKER + SPEEDTEST EXPORTER -------------------
+    - name: Install Docker engine
+      apt:
+        name: docker.io
+        state: present
+        update_cache: yes
+
+    - name: Enable and start Docker service
+      systemd:
+        name: docker
+        enabled: true
+        state: started
+
+    - name: Pull speedtest exporter image
+      command: docker pull billimek/prometheus-speedtest-exporter:latest
+      register: docker_pull
+      changed_when: "'Downloaded' in docker_pull.stdout or 'downloaded' in docker_pull.stdout"
+      failed_when: false
+
+    - name: Ensure speedtest exporter container is running (idempotent)
+      shell: |
+        set -e
+        if ! docker ps --format '{{"{{.Names}}"}}' | grep -qx speedtest-exporter; then
+          if docker ps -a --format '{{"{{.Names}}"}}' | grep -qx speedtest-exporter; then
+            docker rm -f speedtest-exporter
+          fi
+          docker run -d --restart always --name speedtest-exporter -p 9469:9469 billimek/prometheus-speedtest-exporter:latest
+        else
+          docker update --restart=always speedtest-exporter >/dev/null
+        fi
+      args:
+        executable: /bin/bash
+    # ------------------- PYTHON DEPENDENCIES FOR NETWORK TEST SCRIPT -------------------
+    - name: Remove EXTERNALLY-MANAGED restriction (allows pip installs)
+      file:
+        path: /usr/lib/python3.11/EXTERNALLY-MANAGED
+        state: absent
+
+    - name: Ensure pip for Python 3 is installed
+      apt:
+        name:
+          - python3-pip
+          - python3-venv
+        state: present
+        update_cache: yes
+
+    - name: Install required Python packages globally (with --break-system-packages)
+      pip:
+        name:
+          - tcp-latency
+          - psutil
+          - speedtest-cli
+          - requests
+        extra_args: --break-system-packages
+        executable: pip3
+
+    - name: Copy BRS diagnostics script to monadmin home
+      copy:
+        src: "files/BRS_General_Services_v15.py"
+        dest: "/home/{{ monadmin_user }}/BRS_General_Services_v15.py"
+        owner: "{{ monadmin_user }}"
+        group: "{{ monadmin_user }}"
+        mode: "0755"
+
+    # ------------------- SSH BANNERS & MOTD -------------------
+    - name: Configure /etc/issue.net banner
+      copy:
+        content: "{{ issue_net_content }}"
+        dest: /etc/issue.net
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Ensure Banner directive is set
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?\s*Banner\s+'
+        line: 'Banner /etc/issue.net'
+        create: yes
+        backup: yes
+
+    - name: Configure /etc/motd
+      copy:
+        content: "{{ motd_content }}"
+        dest: /etc/motd
+        owner: root
+        group: root
+        mode: "0644"

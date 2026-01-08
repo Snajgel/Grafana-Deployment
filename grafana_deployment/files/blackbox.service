@@ -1,0 +1,13 @@
+[Unit]
+Description=Prometheus Server
+Documentation=https://prometheus.io/docs/introduction/overview
+After=network-online.target
+
+[Service]
+User=blackbox_exporter
+Group=blackbox_exporter
+
+ExecStart=/usr/local/bin/blackbox_exporter --config.file=/etc/blackbox_exporter/monitor_sites.yml
+
+[Install]
+WantedBy=multi-user.target
